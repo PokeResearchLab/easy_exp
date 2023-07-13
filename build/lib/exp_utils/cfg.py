@@ -61,25 +61,38 @@ def handle_special_keys(cfg, config_path):
 	level_parser = argparse.ArgumentParser()
 	for key,value in cfg.copy().items(): #why copy?
 		if key[0]==yaml_argparse_char: #argparse argument
-			handle_parse_args(cfg, key, level_parser)
+			cfg = handle_parse_args(cfg, key, level_parser)
+	
+	if isinstance(cfg,dict):
+		for key,value in cfg.copy().items(): #why copy?
+			if isinstance(value,list):
+				cfg[key] = handle_special_keys_for_lists(value, config_path)
 
-	for key,value in cfg.copy().items(): #why copy?
-		if key[0]==yaml_additional_char:
-			handle_additions(cfg, key, value, config_path)
-		elif isinstance(value,dict):
-			cfg[key] = handle_special_keys(value, config_path)
+		for key,value in cfg.copy().items(): #why copy?
+			if key[0]==yaml_additional_char:
+				handle_additions(cfg, key, value, config_path)
+			elif isinstance(value,dict):
+				cfg[key] = handle_special_keys(value, config_path)
 
-	for key,value in cfg.copy().items(): #why copy?
-		if key[0]==yaml_nosave_char:
-			handle_nosave(cfg, key, value)
+		for key,value in cfg.copy().items(): #why copy?
+			if key[0]==yaml_nosave_char:
+				handle_nosave(cfg, key, value)
 
-	for key,value in cfg.copy().items(): #why copy?
-		if isinstance(value,dict):
-			cfg = raise_globals(cfg, cfg[key])
-			if key!=yaml_global_key:
-				cfg = raise_nosave(cfg, cfg[key], key)
+		for key,value in cfg.copy().items(): #why copy?
+			if isinstance(value,dict):
+				cfg = raise_globals(cfg, cfg[key])
+				if key!=yaml_global_key:
+					cfg = raise_nosave(cfg, cfg[key], key)
 
 	return cfg
+
+def handle_special_keys_for_lists(cfg_list, config_path):
+	for i, sub_value in enumerate(cfg_list.copy()):
+		if isinstance(sub_value,dict):
+			cfg_list[i] = handle_special_keys(sub_value, config_path)
+		elif isinstance(sub_value,list):
+			cfg_list[i] = handle_special_keys_for_lists(sub_value, config_path)
+	return cfg_list
 
 def import_stuff(cfg):
 	if experiment_universal_key in cfg and yaml_imports_key in cfg[experiment_universal_key]:
@@ -132,7 +145,14 @@ def handle_parse_args(cfg, key, level_parser):
 	eval_fun = eval(parse_dict.get("eval","lambda x: x"))
 	# should instead assing eval to type in parse_dict and pass to argparse?
 
-	cfg[key] = eval_fun(parse_dict["value"]) #should check if value exists?
+	value = eval_fun(parse_dict["value"]) #should check if value exists?
+
+	if real_key == yaml_skip_key:
+		return value
+	else:
+		cfg[real_key] = value
+	
+	return cfg
 
 	# parse dots in names
 	
@@ -284,7 +304,6 @@ def merge_dicts(a, b, path = [], preference = None, merge_lists=False):
 				elif preference==0:
 					pass
 				elif preference==1:
-					#print("CHANGING")
 					a[key] = b[key]
 				else:
 					raise ValueError('Preference value not in {None,1,2}')

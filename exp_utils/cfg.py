@@ -62,10 +62,13 @@ def handle_special_keys(cfg, config_path):
 	for key,value in cfg.copy().items(): #why copy?
 		if key[0]==yaml_argparse_char: #argparse argument
 			handle_parse_args(cfg, key, level_parser)
-
+	
+	#if isinstance(cfg,dict):
 	for key,value in cfg.copy().items(): #why copy?
 		if key[0]==yaml_additional_char:
 			handle_additions(cfg, key, value, config_path)
+		elif isinstance(value,list):
+			cfg[key] = handle_special_keys_for_lists(value, config_path)
 		elif isinstance(value,dict):
 			cfg[key] = handle_special_keys(value, config_path)
 
@@ -79,7 +82,31 @@ def handle_special_keys(cfg, config_path):
 			if key!=yaml_global_key:
 				cfg = raise_nosave(cfg, cfg[key], key)
 
+	if len(cfg) == 1 and yaml_skip_key in cfg:
+		cfg = cfg[yaml_skip_key]
+
 	return cfg
+
+def handle_special_keys_for_lists(cfg_list, config_path):
+	for i, sub_value in enumerate(cfg_list.copy()):  #why copy?
+		if isinstance(sub_value,dict):
+			cfg_list[i] = handle_special_keys(sub_value, config_path)
+		elif isinstance(sub_value,list):
+			cfg_list[i] = handle_special_keys_for_lists(sub_value, config_path)
+
+	for i, sub_value in enumerate(cfg_list.copy()):  #why copy?
+		if isinstance(sub_value,dict):
+			cfg_list[i] = handle_special_keys(sub_value, config_path)
+		elif isinstance(sub_value,list):
+			cfg_list[i] = handle_special_keys_for_lists(sub_value, config_path)
+
+	for key,value in cfg.copy().items(): #why copy?
+		if isinstance(value,dict):
+			cfg = raise_globals(cfg, cfg[key])
+			if key!=yaml_global_key:
+				cfg = raise_nosave(cfg, cfg[key], key)
+
+	return cfg_list
 
 def import_stuff(cfg):
 	if experiment_universal_key in cfg and yaml_imports_key in cfg[experiment_universal_key]:
@@ -132,7 +159,9 @@ def handle_parse_args(cfg, key, level_parser):
 	eval_fun = eval(parse_dict.get("eval","lambda x: x"))
 	# should instead assing eval to type in parse_dict and pass to argparse?
 
-	cfg[key] = eval_fun(parse_dict["value"]) #should check if value exists?
+	value = eval_fun(parse_dict["value"]) #should check if value exists?
+
+	cfg[real_key] = value
 
 	# parse dots in names
 	
@@ -284,7 +313,6 @@ def merge_dicts(a, b, path = [], preference = None, merge_lists=False):
 				elif preference==0:
 					pass
 				elif preference==1:
-					#print("CHANGING")
 					a[key] = b[key]
 				else:
 					raise ValueError('Preference value not in {None,1,2}')

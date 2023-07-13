@@ -4,7 +4,6 @@ exp_utils/__init__.py
 exp_utils/_version.py
 exp_utils/cfg.py
 exp_utils/exp.py
-exp_utils/pipeline.py
 exp_utils/var.py
 exp_utils.egg-info/PKG-INFO
 exp_utils.egg-info/SOURCES.txt
