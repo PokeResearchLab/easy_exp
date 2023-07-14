@@ -365,7 +365,10 @@ class ConfigObject(dict):
 		keys = relative_key.split(".")
 		value = self
 		for key in keys[:-1]:
-			value = value.setdefault(key, {})
+			if isinstance(value,dict):
+				value = value.setdefault(key, {})
+			else:
+				value = value[int(key)]
 		dict.__setitem__(value,keys[-1],set_value)
 		if no_save:
 			self[experiment_universal_key][experiment_nosave_key][relative_key] = None
