@@ -61,37 +61,52 @@ def handle_special_keys(cfg, config_path):
 	level_parser = argparse.ArgumentParser()
 	for key,value in cfg.copy().items(): #why copy?
 		if key[0]==yaml_argparse_char: #argparse argument
-			cfg = handle_parse_args(cfg, key, level_parser)
+			handle_parse_args(cfg, key, level_parser)
 	
-	if isinstance(cfg,dict):
-		for key,value in cfg.copy().items(): #why copy?
-			if isinstance(value,list):
-				cfg[key] = handle_special_keys_for_lists(value, config_path)
+	#if isinstance(cfg,dict):
+	for key,value in cfg.copy().items(): #why copy?
+		if key[0]==yaml_additional_char:
+			handle_additions(cfg, key, value, config_path)
+		elif isinstance(value,list):
+			cfg[key] = handle_special_keys_for_lists(value, config_path)
+		elif isinstance(value,dict):
+			cfg[key] = handle_special_keys(value, config_path)
 
-		for key,value in cfg.copy().items(): #why copy?
-			if key[0]==yaml_additional_char:
-				handle_additions(cfg, key, value, config_path)
-			elif isinstance(value,dict):
-				cfg[key] = handle_special_keys(value, config_path)
+	for key,value in cfg.copy().items(): #why copy?
+		if key[0]==yaml_nosave_char:
+			handle_nosave(cfg, key, value)
 
-		for key,value in cfg.copy().items(): #why copy?
-			if key[0]==yaml_nosave_char:
-				handle_nosave(cfg, key, value)
+	for key,value in cfg.copy().items(): #why copy?
+		if isinstance(value,dict):
+			cfg = raise_globals(cfg, cfg[key])
+			if key!=yaml_global_key:
+				cfg = raise_nosave(cfg, cfg[key], key)
+		if isinstance(value,list) and len(value)>0:
+			#cfg = raise_globals(cfg, cfg[key]) #TO IMPLEMENT
+			if isinstance(value[-1],dict):
+				cfg = raise_nosave(cfg, cfg[key][-1], key)
+				if cfg[key][-1] == {}:
+					del cfg[key][-1]
 
-		for key,value in cfg.copy().items(): #why copy?
-			if isinstance(value,dict):
-				cfg = raise_globals(cfg, cfg[key])
-				if key!=yaml_global_key:
-					cfg = raise_nosave(cfg, cfg[key], key)
+	if len(cfg) == 1 and yaml_skip_key in cfg:
+		cfg = cfg[yaml_skip_key]
 
 	return cfg
 
 def handle_special_keys_for_lists(cfg_list, config_path):
-	for i, sub_value in enumerate(cfg_list.copy()):
+	for i, sub_value in enumerate(cfg_list.copy()):  #why copy?
 		if isinstance(sub_value,dict):
 			cfg_list[i] = handle_special_keys(sub_value, config_path)
 		elif isinstance(sub_value,list):
 			cfg_list[i] = handle_special_keys_for_lists(sub_value, config_path)
+
+	no_save_dict = {}
+	for i, sub_value in enumerate(cfg_list.copy()):  #why copy?
+		no_save_dict = raise_nosave_for_lists(no_save_dict, cfg_list[i], str(i))
+
+	if len(no_save_dict)>0:
+		cfg_list.append(no_save_dict)
+				
 	return cfg_list
 
 def import_stuff(cfg):
@@ -147,12 +162,7 @@ def handle_parse_args(cfg, key, level_parser):
 
 	value = eval_fun(parse_dict["value"]) #should check if value exists?
 
-	if real_key == yaml_skip_key:
-		return value
-	else:
-		cfg[real_key] = value
-	
-	return cfg
+	cfg[real_key] = value
 
 	# parse dots in names
 	
@@ -211,6 +221,17 @@ def raise_nosave(cfg, new_cfg, key):
 	if experiment_nosave_key in new_cfg:
 		cfg[experiment_nosave_key] = cfg.get(experiment_nosave_key,[]) + [key+"."+x for x in new_cfg[experiment_nosave_key]]
 		new_cfg.pop(experiment_nosave_key,None)
+	return cfg
+
+def raise_nosave_for_lists(cfg, new_cfg, i):
+	if isinstance(new_cfg,list):
+		app = new_cfg[-1] if isinstance(new_cfg[-1],dict) else {}
+		del new_cfg[-1]
+		new_cfg = app
+	if isinstance(new_cfg,dict):
+		if experiment_nosave_key in new_cfg:
+			cfg[experiment_nosave_key] = cfg.get(experiment_nosave_key,[]) + [str(i)+"."+x for x in new_cfg[experiment_nosave_key]]
+			new_cfg.pop(experiment_nosave_key,None)
 	return cfg
 	
 def raise_keys(cfg, new_cfg):
@@ -330,7 +351,10 @@ class ConfigObject(dict):
 	def __getitem__(self, relative_key): #get_composite_key
 		value = self
 		for key in relative_key.split("."):
-			value = value.get(key,{}) #should raise error instead of default?
+			if isinstance(value,dict):
+				value = value.get(key,{}) #should raise error instead of default?
+			else:
+				value = value[int(key)]
 		return value
 
 	def __setitem__(self, relative_key, set_value): #set_composite_key
@@ -350,7 +374,10 @@ class ConfigObject(dict):
 		keys = relative_key.split(".")
 		value = self
 		for key in keys[:-1]:
-			value = value.get(key,{}) #should raise error instead of default?
+			if isinstance(value,dict):
+				value = value.get(key,{}) #should raise error instead of default?
+			else:
+				value = value[int(key)]
 		return_value = value.get(keys[-1],default_value)
 		dict.__delitem__(value,keys[-1])
 		return return_value
