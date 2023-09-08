@@ -66,7 +66,7 @@ def get_all_exp_list(exp_list_file):
 		all_exps = {}
 	return all_exps
 
-def get_experiment_id(cfg, exp_cfg=None, nosave_removed=False):
+def get_experiment_id(cfg, exp_cfg=None, nosave_removed=False, reset_random_seed=True):
 	exp_cfg_was_None = False
 	if exp_cfg is None:
 		exp_cfg_was_None = True
@@ -98,7 +98,12 @@ def get_experiment_id(cfg, exp_cfg=None, nosave_removed=False):
 			raise TypeError("READING; exp id is type ",type(exp_id))
 	
 	if not exp_found:
+		#check if file with same id is in the folder
+		if reset_random_seed:
+			random.seed(None)
 		exp_id = generate_random_id(**exp_cfg)
+		while os.path.isfile(get_exp_file(exp_cfg,exp_id)):
+			exp_id = generate_random_id(**exp_cfg)
 
 	if not nosave_removed:
 		cfg, exp_cfg = restore_nosave_keys(cfg, exp_cfg)
@@ -110,11 +115,18 @@ def get_experiment_id(cfg, exp_cfg=None, nosave_removed=False):
 
 def set_experiment_id(exp_cfg, exp_id):
 	exp_cfg["experiment_id"] = exp_id
-	#return exp_cfg
 
-def get_set_experiment_id(cfg, exp_cfg,nosave_removed=False): #parameter to overwrite experiment_id?
-	exp_found, exp_id = get_experiment_id(cfg, exp_cfg,nosave_removed) #if "experiment_id" not in exp_cfg else True,exp_cfg["experiment_id"]
+def get_set_experiment_id(cfg, exp_cfg=None, nosave_removed=False): #parameter to overwrite experiment_id?
+	exp_cfg_was_None = False
+	if exp_cfg is None:
+		exp_cfg_was_None = True
+		cfg, exp_cfg = separate_exp_cfg(cfg)
+
+	exp_found, exp_id = get_experiment_id(cfg, exp_cfg, nosave_removed) #if "experiment_id" not in exp_cfg else True,exp_cfg["experiment_id"]
 	set_experiment_id(exp_cfg, exp_id)
+
+	if exp_cfg_was_None:
+		combine_exp_cfg(cfg, exp_cfg)
 	return exp_found, exp_id
 
 def load_single_json(exp_file):
@@ -122,6 +134,7 @@ def load_single_json(exp_file):
 		with open(exp_file, "r") as f:
 			cfg = ConfigObject(json.load(f))
 	else: raise FileNotFoundError("Experiment "+exp_file+" doesn't exist")
+	#if not exist, recreate?
 	return cfg
 
 def check_json(cfg, exp_cfg, exp_ids):
@@ -170,8 +183,8 @@ def get_set_hashing(cfg,exp_cfg):
 	exp_cfg["hash"] = hash_config(cfg)
 	return exp_cfg["hash"]
 
-def save_experiment(cfg, exp_cfg=None, compute_exp_id=True):
-	#cfg = jsonify(cfg.copy()) #TODO
+def save_experiment(cfg, exp_cfg=None, compute_exp_id=False):
+	#cfg = jsonify(copy.deepcopy(cfg) #TODO
 
 	exp_cfg_was_None = False
 	if exp_cfg is None:
@@ -180,7 +193,8 @@ def save_experiment(cfg, exp_cfg=None, compute_exp_id=True):
 
 	cfg, exp_cfg = remove_nosave_keys(cfg, exp_cfg)
 
-	if compute_exp_id or "experiment_id" not in exp_cfg:
+	experiment_id_was_missing = "experiment_id" not in exp_cfg
+	if compute_exp_id or experiment_id_was_missing:
 		get_set_experiment_id(cfg, exp_cfg, nosave_removed = True)
 
 	save_hashing(cfg, exp_cfg)
@@ -191,9 +205,13 @@ def save_experiment(cfg, exp_cfg=None, compute_exp_id=True):
 	
 	#put option? = what to do if replacing an existing experiment
 
+	# remove exp info from cfg
+	if experiment_id_was_missing:
+		exp_cfg.pop("experiment_id")
+		exp_cfg.pop("hash")
+
 	if exp_cfg_was_None:
 		combine_exp_cfg(cfg, exp_cfg)
-	#return cfg, exp_cfg
 
 def save_hashing(cfg, exp_cfg):
 	exp_list_file = get_exp_list(exp_cfg)

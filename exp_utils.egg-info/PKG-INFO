@@ -5,8 +5,7 @@ Summary: Experiments utils
 Home-page: https://github.com/siciliano-diag/exp_utils.git
 Author: siciliano-diag
 Author-email: siciliano@diag.uniroma1.it
-License: UNKNOWN
-Description: # exp_utils
 Keywords: pip,MachineLearning
-Platform: UNKNOWN
 Description-Content-Type: text/markdown
+
+# exp_utils

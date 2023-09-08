@@ -3,6 +3,7 @@ import argparse
 import os
 import re
 import yaml
+from copy import deepcopy
 
 from .var import * #experiment_universal_key, yaml_additional_char, yaml_global_key
 
@@ -394,7 +395,7 @@ class ConfigObject(dict):
 
 	def sweep_additions(self, relative_key, config_path="../cfg"):
 		addition_key = f"+{relative_key}"
-		orig_cfg = self.copy()
+		orig_cfg = deepcopy(self)
 		for value in self.sweep(addition_key):
 			handle_additions(self, addition_key, value, config_path)
 			yield value
