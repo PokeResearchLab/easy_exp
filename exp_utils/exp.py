@@ -145,22 +145,6 @@ def check_json(cfg, exp_cfg, exp_ids):
 			return True, exp_id
 	return False, None
 
-def get_experiments(project_folder, name, sub_cfg = None, check_type = None,  **kwargs):
-	exp_folder = os.path.join(get_out_folder("exp",project_folder), name)
-	all_experiments = {}
-	for exp_filename in os.listdir(exp_folder):
-		exp_id = exp_filename.split(".")[0]
-		cfg = load_single_json(os.path.join(exp_folder,exp_filename))
-		if check_type is None: #no check
-			cond = True
-		elif "match" in check_type.lower():
-			cond = check_if_cfg_matching(cfg,**sub_cfg)
-		elif "contain" in check_type.lower():
-			cond = check_if_cfg_contained(cfg,sub_cfg)
-		else: raise ValueError("Check type "+check_type+" doesn't exist")
-		if cond: all_experiments[exp_id] = cfg
-	return all_experiments
-
 # def get_all_experiments(project_folder, name, **kwargs):
 # 	return get_experiments(project_folder, name)
 
@@ -244,6 +228,25 @@ def save_config(cfg, exp_cfg):
 	with open(exp_file,'w') as f:
 		json.dump(cfg,f,sort_keys=True,indent=4)
 	return cfg
+
+
+def get_experiments(name, project_folder="../", sub_cfg = None, check_type = None,  **kwargs):
+	exp_folder = os.path.join(get_out_folder("exp",project_folder), name)
+	all_experiments = {}
+	for exp_filename in os.listdir(exp_folder):
+		exp_id = exp_filename.split(".")[0]
+		cfg = load_single_json(os.path.join(exp_folder,exp_filename))
+		if check_type is None: #no check
+			cond = True
+		elif "match" in check_type.lower():
+			cond = check_if_cfg_matching(cfg,**sub_cfg)
+		elif "contain" in check_type.lower():
+			cond = check_if_cfg_contained(cfg,sub_cfg)
+		else: raise ValueError("Check type "+check_type+" doesn't exist")
+		if cond: all_experiments[exp_id] = cfg
+	return all_experiments
+
+
 
 # def jsonify(obj):
 # 	if isinstance(obj, dict):
