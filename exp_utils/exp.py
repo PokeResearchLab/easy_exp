@@ -39,6 +39,22 @@ def combine_exp_cfg(cfg, exp_cfg):
     cfg[experiment_universal_key] = exp_cfg
     return cfg
 
+def get_clean_cfg(cfg):
+    """
+    Get a clean copy of the configuration.
+
+    :param cfg: The configuration to clean.
+    :return: A clean copy of the configuration.
+    """
+    
+    # Separate the experiment configuration from the main configuration
+    cfg, exp_cfg = separate_exp_cfg(copy.deepcopy(cfg))
+
+    # Remove keys that should not be saved in the experiment
+    cfg, exp_cfg = remove_nosave_keys(cfg, exp_cfg)
+
+    return cfg
+
 # This function removes keys from the configuration that should not be saved.
 def remove_nosave_keys(cfg, exp_cfg):
     """
