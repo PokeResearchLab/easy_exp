@@ -15,9 +15,9 @@ if os.path.isfile("requirements.txt"):
 
 # Define the package setup configuration
 setup(
-    name='Exp Utils',  # Replace with your package name
+    name='Easy Exp',  # Replace with your package name
     packages=find_packages(),  # List of all packages included in your project
-    description='Exp Utils: Simplify Experiment Management',  
+    description='Easy Exp: Simplify Experiment Management',  
     long_description=long_description,  # Use the contents of README.md as the long description
     long_description_content_type="text/markdown",
     version='1.0.0',  # Specify the version of your package
