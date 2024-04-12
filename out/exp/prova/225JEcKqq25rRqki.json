@@ -1,0 +1,50 @@
+{
+    "app1": {
+        "app1_2": {
+            "foo_str1_2": "app2_foo"
+        },
+        "app_glob": "glob",
+        "app_glob1_2": "glob1_2",
+        "app_glob2": "glob2",
+        "foo_float": 1.23,
+        "foo_int": 123,
+        "foo_list1": [
+            123,
+            "456",
+            789.0
+        ],
+        "foo_list2": [
+            123,
+            "456"
+        ],
+        "foo_none": null,
+        "foo_parse1": [
+            "a",
+            "b",
+            "c"
+        ],
+        "foo_parse2": 123,
+        "foo_parse3": 42,
+        "foo_parse4": 8,
+        "foo_ref1": "string_value",
+        "foo_ref2": "string_value",
+        "foo_str": "string_value",
+        "foo_sweep1": 3,
+        "foo_sweep2": 3
+    },
+    "app2": {
+        "app3": {
+            "foo_int1": 123
+        },
+        "foo_int2": 123,
+        "foo_str": "app2_foo"
+    },
+    "app3": {
+        "foo_str": "abc"
+    },
+    "app5": 5,
+    "new_key": "kmasdkasm",
+    "new_key2": {
+        "abc": 123
+    }
+}

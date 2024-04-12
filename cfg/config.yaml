@@ -19,15 +19,28 @@ app1:
         value: [[1,2,3],[4,5,6]]
         default: [[123],[456]]
         eval: DF
-    -/foo_parse4:
+    -foo_parse4:
         value: multiprocessing.cpu_count() #This will be a string
         #default: [[123],[456]]
         eval: eval
     foo_ref1: ${app1.foo_str} #this is custom parsing. Doesn't require alias, just complete key-path
     foo_ref2: *reference_key #this is yaml parsing. Requires setting an alias
-    +/app1_2: app1_2_file
+    £foo_sweep1:
+        default: 3
+        values: [1,2,3,4,5]
+    £foo_sweep2:
+        default: 3
+        min: 1
+        max: 5
+    +app1_2: app1_2_file
 
 +app2: app2_file
+
+#TODO: doesn't work if sweep/save in higher dict
+# /foo_nosave: 123
+# £foo_sweep:
+#     default: "a"
+#     values: ["a","b","c"]
 
 #EXPERIMENT PARAMETERS
 #NOT SAVED AS PART OF THE CONFIGURATION
@@ -44,6 +57,9 @@ __exp__:
           as:
             - DF
         - multiprocessing
+    +__wandb__: wandb
+    __sweep__add:
+        method: random
 
 #maybe should create __yaml__ key --> __imports__ and other stuff
 

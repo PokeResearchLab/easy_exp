@@ -43,12 +43,16 @@ def load_configuration(config_name=None, config_path=None):
 
     # Move 'nosave' keys to '__exp__'
     cfg = set_nosave(cfg)
+    # Move 'sweep' keys to '__exp__'
+    cfg = set_sweep(cfg)
 
     # Get references to other keys
     cfg = handle_relatives(cfg, cfg)
 
     # Change 'nosave' keys to dictionaries
     cfg = change_nosave_to_dict(cfg)
+    # Change 'sweep' keys to default value and store sweep parameters in __sweep__
+    cfg = change_sweep_to_default(cfg)
 
     # Uncomment and complete this section if needed
     # for k, v in args.items():
@@ -108,13 +112,13 @@ def load_yaml(config_name, config_path, cfg={}):
         cfg = merge_dicts(cfg, yaml.safe_load(f), preference=1)
 
     # Handle special keys in the configuration
-    cfg = handle_special_keys(cfg, config_path)
+    cfg = handle_special_keys_for_dicts(cfg, config_path)
 
     # Return the merged configuration object
     return cfg
 
 
-def handle_special_keys(cfg, config_path):
+def handle_special_keys_for_dicts(cfg, config_path):
     """
     Handle special keys in the configuration.
 
@@ -141,8 +145,8 @@ def handle_special_keys(cfg, config_path):
             handle_additions(cfg, key, value, config_path)
         elif isinstance(value, list):
             cfg[key] = handle_special_keys_for_lists(value, config_path)
-        elif isinstance(value, dict):
-            cfg[key] = handle_special_keys(value, config_path)
+        elif isinstance(value, dict):# and key != experiment_universal_key:
+            cfg[key] = handle_special_keys_for_dicts(value, config_path)
 
     # Iterate over a copy of the keys and values in the configuration
     for key, value in cfg.copy().items():
@@ -151,16 +155,23 @@ def handle_special_keys(cfg, config_path):
 
     # Iterate over a copy of the keys and values in the configuration
     for key, value in cfg.copy().items():
-        if isinstance(value, dict):
+        if key[0] == yaml_sweep_char:  # Check if it's a sweep key
+            handle_sweep(cfg, key, value)
+
+    # Iterate over a copy of the keys and values in the configuration
+    for key, value in cfg.copy().items():
+        if isinstance(value, dict):# and key != experiment_universal_key:
             cfg = raise_globals(cfg, cfg[key])
             if key != yaml_global_key:
                 cfg = raise_nosave(cfg, cfg[key], key)
+                cfg = raise_sweep(cfg, cfg[key], key)
 
-    # Iterate over a copy of the keys and values in the configuration
+    # Iterate over a copy of the keys and values in the configuration to get nosave and sweep if in a list
     for key, value in cfg.copy().items():
         if isinstance(value, list) and len(value) > 0:
             if isinstance(value[-1], dict):
                 cfg = raise_nosave(cfg, cfg[key][-1], key)
+                cfg = raise_sweep(cfg, cfg[key][-1], key)
                 if cfg[key][-1] == {}:
                     del cfg[key][-1]
 
@@ -183,22 +194,23 @@ def handle_special_keys_for_lists(cfg_list, config_path):
     for i, sub_value in enumerate(cfg_list.copy()):
         if isinstance(sub_value, dict):
             # Recursively handle special keys for dictionaries within the list
-            cfg_list[i] = handle_special_keys(sub_value, config_path)
+            cfg_list[i] = handle_special_keys_for_dicts(sub_value, config_path)
         elif isinstance(sub_value, list):
             # Recursively handle special keys for sublists within the list
             cfg_list[i] = handle_special_keys_for_lists(sub_value, config_path)
 
-    # Create a dictionary to hold nosave items from the list
-    no_save_dict = {}
+    # Create a dictionary to hold nosave and sweep items from the list
+    nosave_sweep_dict = {}
     
     # Iterate over the list with a copy of its values
     for i, sub_value in enumerate(cfg_list.copy()):
         # Raise nosave items to the top level and use their indices as keys
-        no_save_dict = raise_nosave_for_lists(no_save_dict, cfg_list[i], str(i))
+        nosave_sweep_dict = raise_nosave_for_lists(nosave_sweep_dict, cfg_list[i], str(i))
+        nosave_sweep_dict = raise_sweep_for_lists(nosave_sweep_dict, cfg_list[i], str(i))
 
-    # If there are nosave items, append the no_save_dict to the list
-    if len(no_save_dict) > 0:
-        cfg_list.append(no_save_dict)
+    # If there are nosave or sweep items, append the nosave_sweep_dict to the list
+    if len(nosave_sweep_dict) > 0:
+        cfg_list.append(nosave_sweep_dict)
 
     return cfg_list
 
@@ -277,6 +289,21 @@ def remove_nosave(key):
 
     return key
 
+def remove_sweep(key):
+    """
+    Remove the 'sweep' special character from a configuration key.
+
+    :param key: The key to process.
+    :return: The key with the 'sweep' character removed.
+    """
+
+    # Check if the key starts with the yaml_sweep_char
+    if key[0] == yaml_sweep_char:
+        # Remove the yaml_sweep_char from the beginning of the key
+        key = key[1:]
+
+    return key
+
 
 def handle_parse_args(cfg, key, level_parser):
     """
@@ -295,6 +322,9 @@ def handle_parse_args(cfg, key, level_parser):
 
     # Remove the 'nosave' special character from the key
     real_key = remove_nosave(key)
+
+    # Remove the 'sweep' special character from the key
+    real_key = remove_sweep(key)
 
     # Get the eval function from the parse_dict, default to lambda x: x if not specified
     eval_fun = eval(parse_dict.get("eval", "lambda x: x"))
@@ -334,6 +364,8 @@ def handle_additions(cfg, key, value, config_path):
         
         # Remove the 'nosave' special character from the key
         real_key = remove_nosave(key)
+        # Remove the 'sweep' special character from the key
+        real_key = remove_sweep(key)
         
         # Determine the additional configuration path
         if value[0] == "/":
@@ -402,6 +434,24 @@ def move_nosave(cfg, new_cfg, key, new_key):
     
     return cfg
 
+def move_sweep(cfg, new_cfg, key, new_key):
+    """
+    Move sweep keys from new_cfg to cfg.
+
+    :param cfg: The target configuration object to merge sweep keys into.
+    :param new_cfg: The source configuration object to extract sweep keys from.
+    :param key: The key used to prefix the moved sweep keys.
+    :return: The updated target configuration object.
+    """
+    
+    if experiment_sweep_key in new_cfg:
+        # Add new_key to the sweep keys from new_cfg
+        cfg[experiment_sweep_key] = cfg.get(experiment_sweep_key, []) + [new_key]
+        # Remove key from the sweep keys from new_cfg
+        new_cfg[experiment_sweep_key].remove(key)
+    
+    return cfg
+
 def raise_nosave(cfg, new_cfg, key):
     """
     Raise nosave keys from new_cfg to cfg.
@@ -418,6 +468,25 @@ def raise_nosave(cfg, new_cfg, key):
         
         # Remove the experiment_nosave_key from new_cfg
         new_cfg.pop(experiment_nosave_key, None)
+    
+    return cfg
+
+def raise_sweep(cfg, new_cfg, key):
+    """
+    Raise sweep keys from new_cfg to cfg.
+
+    :param cfg: The target configuration object to merge sweep keys into.
+    :param new_cfg: The source configuration object to extract sweep keys from.
+    :param key: The key used to prefix the raised sweep keys.
+    :return: The updated target configuration object.
+    """
+    
+    if experiment_sweep_key in new_cfg:
+        # Prefix the sweep keys from new_cfg with the provided key
+        cfg[experiment_sweep_key] = cfg.get(experiment_sweep_key, []) + [key + "." + x for x in new_cfg[experiment_sweep_key]]
+        
+        # Remove the experiment_sweep_key from new_cfg
+        new_cfg.pop(experiment_sweep_key, None)
     
     return cfg
 
@@ -444,6 +513,33 @@ def raise_nosave_for_lists(cfg, new_cfg, i):
         
         # Remove the experiment_nosave_key from new_cfg
         new_cfg.pop(experiment_nosave_key, None)
+        if new_cfg == {}:
+            del new_cfg
+    
+    return cfg
+
+def raise_sweep_for_lists(cfg, new_cfg, i):
+    """
+    Raise sweep keys from new_cfg to cfg when dealing with lists.
+
+    :param cfg: The target configuration object to merge sweep keys into.
+    :param new_cfg: The source configuration object to extract sweep keys from.
+    :param i: The index used to prefix the raised sweep keys.
+    :return: The updated target configuration object.
+    """
+    
+    # If new_cfg is a list, check the last element to see if it's a dictionary
+    if isinstance(new_cfg, list):
+        new_cfg = new_cfg[-1] if isinstance(new_cfg[-1], dict) else {}
+        #del new_cfg[-1]
+    
+    # If new_cfg is a dictionary and contains experiment_sweep_key
+    if isinstance(new_cfg, dict) and experiment_sweep_key in new_cfg:
+        # Prefix the sweep keys from new_cfg with the provided index
+        cfg[experiment_sweep_key] = cfg.get(experiment_sweep_key, []) + [str(i) + "." + x for x in new_cfg[experiment_sweep_key]]
+        
+        # Remove the experiment_sweep_key from new_cfg
+        new_cfg.pop(experiment_sweep_key, None)
         if new_cfg == {}:
             del new_cfg
     
@@ -477,6 +573,10 @@ def raise_keys(cfg, new_cfg):
             # Check if key was in nosave keys, and raise it too
             if key in new_cfg.get(experiment_nosave_key,[]):
                 move_nosave(cfg, new_cfg, key, new_key)
+
+            # Check if key was in sweep keys, and raise it too
+            if key in new_cfg.get(experiment_sweep_key,[]):
+                move_sweep(cfg, new_cfg, key, new_key)
     
     # Remove the keys from new_cfg
     for key in to_pop:
@@ -499,12 +599,40 @@ def handle_nosave(cfg, key, value):
     
     # Remove the 'nosave' special character from the key
     key = key[1:]
+
+    #TODO: should take into account if the key contains other special characters (e.g. sweep)
+    #Fast fix: not working cause disappears from sweep
+    # if key[0] == yaml_sweep_char:
+    #     key = key[1:]
+    
+    # Assign the value to the cleaned key in cfg
+    cfg[key] = value
+
+    
+    # Add the key to the experiment_nosave_key list in cfg
+    cfg[experiment_nosave_key] = [*cfg.get(experiment_nosave_key, []), key]
+
+def handle_sweep(cfg, key, value):
+    """
+    Handle sweep keys by moving them from cfg to a special sweep list.
+
+    :param cfg: The configuration object to modify.
+    :param key: The sweep key to handle.
+    :param value: The value associated with the sweep key.
+    """
+    
+    # Remove the original sweep key from cfg
+    del cfg[key]
+    
+    # Remove the 'sweep' special character from the key
+    key = key[1:]
     
     # Assign the value to the cleaned key in cfg
     cfg[key] = value
     
-    # Add the key to the experiment_nosave_key list in cfg
-    cfg[experiment_nosave_key] = [*cfg.get(experiment_nosave_key, []), key]
+    # Add the key to the experiment_sweep_key list in cfg
+    cfg[experiment_sweep_key] = [*cfg.get(experiment_sweep_key, []), key]
+
 
 def handle_globals(cfg):
     """
@@ -538,6 +666,23 @@ def set_nosave(cfg):
         cfg[experiment_universal_key][experiment_nosave_key] = cfg[experiment_nosave_key]
         # Remove the experiment_nosave_key from the configuration
         cfg.pop(experiment_nosave_key, None)
+    
+    return cfg
+
+def set_sweep(cfg):
+    """
+    Move sweep keys to the universal configuration section.
+
+    :param cfg: The configuration object to process.
+    :return: The updated configuration object.
+    """
+    
+    # Check if experiment_sweep_key is present in the configuration
+    if experiment_sweep_key in cfg:
+        # Move the sweep keys to the universal configuration section
+        cfg[experiment_universal_key][experiment_sweep_key] = cfg[experiment_sweep_key]
+        # Remove the experiment_sweep_key from the configuration
+        cfg.pop(experiment_sweep_key, None)
     
     return cfg
 
@@ -646,8 +791,8 @@ def merge_dicts(a, b, path=[], preference=None, merge_lists=False):
             else:
                 if preference is None:
                     # Raise an exception for conflicts when preference is not specified
-                    if (merge_lists or key == "__nosave__") and isinstance(a[key], list) and isinstance(b[key], list):
-                        # Merge lists if merge_lists is True, and if key is "__nosave__" and both are lists
+                    if (merge_lists or key in [experiment_nosave_key,experiment_sweep_key]) and isinstance(a[key], list) and isinstance(b[key], list):
+                        # Merge lists if merge_lists is True, and if key is in [experiment_nosave_key,experiment_sweep_key] and both are lists
                         a[key] += b[key]
                     else:
                         raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
@@ -738,12 +883,17 @@ class ConfigObject(dict):
         :param set_value: The value to set.
         """
 
-        no_save = False  # Flag to indicate whether to mark the key as nosave
-
+        nosave = False  # Flag to indicate whether to mark the key as nosave
         # Check if the relative key starts with yaml_nosave_char
         if relative_key[0] == yaml_nosave_char:
             relative_key = relative_key[1:]  # Remove the nosave character
-            no_save = True
+            nosave = True
+
+        sweep = False  # Flag to indicate whether to mark the key as sweep
+        # Check if the relative key starts with yaml_sweep_char
+        if relative_key[0] == yaml_sweep_char:
+            relative_key = relative_key[1:]  # Remove the sweep character
+            sweep = True
 
         keys = relative_key.split(".")  # Split the relative key by dot
 
@@ -758,12 +908,18 @@ class ConfigObject(dict):
                 # If the current value is not a dictionary, assume it's a list and use the key as an index
                 value = value[int(key)]
 
-        # Set the final key in the configuration to the specified value
-        dict.__setitem__(value, keys[-1], set_value)
-
-        if no_save:
+        #TODO: doesn't work if sweep/save in higher dict
+        if nosave:
             # Mark the key as nosave in the universal configuration
             self[experiment_universal_key][experiment_nosave_key][relative_key] = None
+
+        if sweep:
+            # Mark the key as sweep in the universal configuration
+            self[experiment_universal_key][experiment_sweep_key][relative_key] = set_value
+            set_value = set_value["default"] # Set the set_value to the default value
+
+        # Set the final key in the configuration to the specified value
+        dict.__setitem__(value, keys[-1], set_value)
 
         
     def pop(self, relative_key, default_value=None):
@@ -915,6 +1071,10 @@ class ConfigObject(dict):
         # Delete the final key from the configuration
         dict.__delitem__(value, keys[-1])
 
+    def update(self, other_dict):
+        for key,value in other_dict.items():
+            self.__setitem__(key,value)
+
 
 def set_default_exp_key(cfg):
     """
@@ -932,7 +1092,8 @@ def set_default_exp_key(cfg):
         "project_folder": "../",         # Project folder, used to locate folders, optional, default = "../"
         "key_len": 16,                  # Length of experiment key, optional, default = 16
         "key_prefix": "",               # Prefix for experiment key, optional, default = ""
-        experiment_nosave_key: []       # List of keys marked as nosave
+        experiment_nosave_key: [],       # List of keys marked as nosave
+        experiment_sweep_key: []       # List of keys marked as sweep
     }
     
     # Merge the default experiment keys into the universal configuration, preferring existing keys
@@ -962,6 +1123,33 @@ def change_nosave_to_dict(cfg):
     
     # Replace the nosave keys list in the configuration with the nosave dictionary
     cfg[experiment_universal_key][experiment_nosave_key] = nosave_dict
+    
+    return cfg
+
+def change_sweep_to_default(cfg):
+    """
+    Set the sweep values in the configuration to their default value.
+
+    This function converts the sweep keys in the configuration from a list format to a dictionary format.
+
+    :param cfg: The configuration to be updated.
+    :return: The updated configuration with sweep keys in dictionary format.
+    """
+    
+    # Create an empty dictionary to hold the sweep keys
+    sweep_dict = {"parameters":{}}
+    
+    # Iterate through the sweep keys and add them to the dictionary with all values
+    for key in cfg[experiment_universal_key][experiment_sweep_key]:
+        sweep_dict["parameters"][key] = cfg[key]
+        cfg[key] = cfg[key]["default"] #replace the value with the default value
+
+    if f"{experiment_sweep_key}add" in cfg[experiment_universal_key]: 
+        sweep_dict.update(cfg[experiment_universal_key][f"{experiment_sweep_key}add"])
+        cfg[experiment_universal_key].pop(f"{experiment_sweep_key}add", None)
+
+    # Replace the sweep keys list in the configuration with the sweep dictionary
+    cfg[experiment_universal_key][experiment_sweep_key] = sweep_dict
     
     return cfg
 

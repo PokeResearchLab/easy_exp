@@ -1,5 +1,6 @@
 from . import exp  # Import the 'exp' module from this package
 from . import cfg  # Import the 'cfg' module from this package
+from . import wandb  # Import the 'wandb' module from this package
 from ._version import __version__  # Import the '__version__' variable from this package
 
 # The '__all__' variable can be used to specify which symbols are exported when
