@@ -14,9 +14,9 @@ def wandb_sweep(cfg, fun, sweep_dict=None, adjust_run_cap = True, run_cap_for_di
 
     if sweep_dict is None:
         sweep_dict = cfg["__exp__"]["__sweep__"]
-        sweep_dict["parameters"] = {k1:{k2:v2 for k2,v2 in v1.items() if k2 != "default"} for k1,v1 in sweep_dict["parameters"].items()}
     if adjust_run_cap:
         sweep_dict["run_cap"] = count_run_cap(sweep_dict, run_cap_for_distr)
+    sweep_dict["parameters"] = {k1:{k2:v2 for k2,v2 in v1.items() if k2 != "default"} for k1,v1 in sweep_dict["parameters"].items()}
 
     wandb_dict = cfg["__exp__"]["__wandb__"]
 
