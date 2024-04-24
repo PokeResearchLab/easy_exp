@@ -597,3 +597,10 @@ def jsonify_numpys(value):
 
 def jsonify_function(value):
     return value.__name__
+
+
+
+#TODO:
+# Put defaults 
+# Delete some experiments
+# Change a parameter's name
