@@ -973,73 +973,77 @@ class ConfigObject(dict):
         This means that one key is going to have its values restored, while the others are going to be left with the last value.
         To avoid this, use itertools.zip_longest instead of zip.
         """
-        
-        original_values = self[relative_key]  # Get the list-like values from the configuration
-        for value in original_values:
+        sweep_dict = self["__exp__"]["__sweep__"]["parameters"]
+        if relative_key in sweep_dict:
+            sweep_values = sweep_dict[relative_key]["values"] #TODO: more complex method if sweep is based on distribution
+        else:
+            sweep_values = self[relative_key]  # Get the list-like values from the configuration
+        original_value = self[relative_key]
+        for value in sweep_values:
             self[relative_key] = value  # Set the current value to the relative key
             yield value  # Yield the current value
-        self[relative_key] = original_values  # Restore the original values in the configuration
+        self[relative_key] = original_value  # Restore the original values in the configuration
 
-    def sweep_multiple(self, *relative_keys):
-        """
-        Iterate through and yield values of multiple list-like keys in the configuration.
+    # def sweep_multiple(self, *relative_keys):
+    #     """
+    #     Iterate through and yield values of multiple list-like keys in the configuration.
 
-        This method allows you to sweep through multiple list-like keys, such as when multiple values are stored under the same key.
+    #     This method allows you to sweep through multiple list-like keys, such as when multiple values are stored under the same key.
 
-        Example:
-        cfg = ConfigObject({"key1": [1, 2, 3], "key2": [4, 5, 6]})
-        for value1, value2 in cfg.sweep_multiple(["key1", "key2"]):
-            print(value1, value2)
+    #     Example:
+    #     cfg = ConfigObject({"key1": [1, 2, 3], "key2": [4, 5, 6]})
+    #     for value1, value2 in cfg.sweep_multiple(["key1", "key2"]):
+    #         print(value1, value2)
 
-        :param relative_keys: The relative keys to access and sweep through.
-        :yield: Each value associated with the relative keys.
-        """
+    #     :param relative_keys: The relative keys to access and sweep through.
+    #     :yield: Each value associated with the relative keys.
+    #     """
         
-        for values in zip_longest(*[self.sweep(relative_key) for relative_key in relative_keys]):
-            yield values
+    #     for values in zip_longest(*[self.sweep(relative_key) for relative_key in relative_keys]):
+    #         yield values
 
-    def sweep_safe(self, relative_key):
-        """
-        Iterate through and yield values of a list-like key in the configuration.
-        If not list-like, yield the value as is.
+    # def sweep_safe(self, relative_key):
+    #     """
+    #     Iterate through and yield values of a list-like key in the configuration.
+    #     If not list-like, yield the value as is.
 
-        :param relative_key: The relative key to access and sweep through.
-        :yield: Each value associated with the relative key.
-        """
+    #     :param relative_key: The relative key to access and sweep through.
+    #     :yield: Each value associated with the relative key.
+    #     """
 
-        if isinstance(self[relative_key], (list, tuple)):
-            yield from self.sweep(relative_key)
-        else:
-            yield self[relative_key]
+    #     if isinstance(self[relative_key], (list, tuple)):
+    #         yield from self.sweep(relative_key)
+    #     else:
+    #         yield self[relative_key]
 
-    def sweep_additions(self, relative_key, config_path="../cfg"):
-        """
-        Iterate through and yield values of a list-like key with additional configurations.
+    # def sweep_additions(self, relative_key, config_path="../cfg"):
+    #     """
+    #     Iterate through and yield values of a list-like key with additional configurations.
 
-        This method allows you to sweep through a list-like key, such as when multiple values are stored under the same key,
-        and for each value, load and merge additional configurations from specified paths.
+    #     This method allows you to sweep through a list-like key, such as when multiple values are stored under the same key,
+    #     and for each value, load and merge additional configurations from specified paths.
 
-        Example:
-        cfg = ConfigObject({"key1": [1, 2, 3]})
-        for value in cfg.sweep_additions("key1"):
-            print(value)
+    #     Example:
+    #     cfg = ConfigObject({"key1": [1, 2, 3]})
+    #     for value in cfg.sweep_additions("key1"):
+    #         print(value)
 
-        :param relative_key: The relative key to access and sweep through.
-        :param config_path: The path to the directory containing additional configurations.
-        :yield: Each value associated with the relative key.
-        """
+    #     :param relative_key: The relative key to access and sweep through.
+    #     :param config_path: The path to the directory containing additional configurations.
+    #     :yield: Each value associated with the relative key.
+    #     """
         
-        addition_key = f"+{relative_key}"  # Construct the key for additional configurations
-        orig_cfg = deepcopy(self)  # Create a deep copy of the original configuration
+    #     addition_key = f"+{relative_key}"  # Construct the key for additional configurations
+    #     orig_cfg = deepcopy(self)  # Create a deep copy of the original configuration
         
-        # Iterate through values of the list-like key
-        for value in self.sweep(addition_key):
-            # Handle additions for each value and yield the value
-            handle_additions(self, addition_key, value, config_path)
-            yield value  # Yield the current value
-            self = orig_cfg  # Restore the original configuration
+    #     # Iterate through values of the list-like key
+    #     for value in self.sweep(addition_key):
+    #         # Handle additions for each value and yield the value
+    #         handle_additions(self, addition_key, value, config_path)
+    #         yield value  # Yield the current value
+    #         self = orig_cfg  # Restore the original configuration
         
-        self = orig_cfg  # Restore the original configuration after sweeping
+    #     self = orig_cfg  # Restore the original configuration after sweeping
 
 
     def __delitem__(self, relative_key):
