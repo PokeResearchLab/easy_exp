@@ -5,7 +5,6 @@
             "foo_sweep1_2": 1.2345
         },
         "app_glob": "glob",
-        "app_glob1_2": "glob1_2",
         "app_glob2": "glob2",
         "foo_float": 1.23,
         "foo_int": 123,
@@ -34,15 +33,10 @@
         "foo_sweep2": 3
     },
     "app2": {
-        "app3": {
-            "foo_int1": 123
-        },
-        "foo_int2": 123,
-        "foo_parse": "hey",
-        "foo_str": "app2_foo"
+        "app3": {},
+        "foo_sweep": "hey"
     },
     "app3": {
         "foo_str": "abc"
-    },
-    "app5": 5
+    }
 }

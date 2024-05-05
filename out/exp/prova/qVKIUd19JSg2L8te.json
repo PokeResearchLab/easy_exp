@@ -38,15 +38,11 @@
             "foo_int1": 123
         },
         "foo_int2": 123,
-        "foo_parse": "hey",
-        "foo_str": "app2_foo"
+        "foo_str": "app2_foo",
+        "foo_sweep": "hey"
     },
     "app3": {
         "foo_str": "abc"
     },
-    "app5": 5,
-    "new_key": "kmasdkasm",
-    "new_key2": {
-        "abc": 123
-    }
+    "app5": 5
 }

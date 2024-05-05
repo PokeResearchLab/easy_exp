@@ -9,7 +9,11 @@
         "app_glob2": "glob2",
         "foo_float": 1.23,
         "foo_int": 123,
-        "foo_list1": "456",
+        "foo_list1": [
+            123,
+            "456",
+            789.0
+        ],
         "foo_list2": [
             123,
             "456"
@@ -34,15 +38,10 @@
             "foo_int1": 123
         },
         "foo_int2": 123,
-        "foo_parse": "hey",
-        "foo_str": "modified"
+        "foo_str": "app2_foo",
+        "foo_sweep": "hey"
     },
     "app3": {
         "foo_str": "abc"
-    },
-    "app5": 5,
-    "new_key": "kmasdkasm",
-    "new_key2": {
-        "abc": 123
     }
 }

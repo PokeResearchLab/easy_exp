@@ -66,10 +66,9 @@ def remove_nosave_keys(cfg, exp_cfg):
     :param exp_cfg: The experiment configuration.
     :return: A tuple containing the updated main configuration dictionary and the experiment configuration.
     """
+    cfg = copy.deepcopy(cfg)
     for key in exp_cfg[experiment_nosave_key]:
-        #exp_cfg[experiment_nosave_key][key] = cfg.pop(key)
-        exp_cfg[experiment_nosave_key][key] = cfg[key]
-    cfg = ConfigObject({key:value for key,value in cfg.items() if key not in exp_cfg[experiment_nosave_key]})
+        exp_cfg[experiment_nosave_key][key] = cfg.pop(key)
     return cfg, exp_cfg
 
 # This function restores keys that were previously removed as "nosave."
