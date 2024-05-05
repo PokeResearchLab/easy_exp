@@ -32,6 +32,12 @@ app1:
         default: 3
         min: 1
         max: 5
+    £foo_sweep3:
+        default: "a"
+        values: [a,b,c,d,e]
+    £foo_sweep4:
+        default: -3
+        values: [-1,-2,-3,-4,-5]
     +app1_2: app1_2_file
 
 +app2: app2_file

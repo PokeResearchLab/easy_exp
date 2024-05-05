@@ -955,25 +955,37 @@ class ConfigObject(dict):
         
         return return_value
 
-    def sweep(self, relative_key):
+    def sweep(self, *sweep_info):
         """
-        Iterate through and yield values of a list-like key in the configuration.
-
-        This method allows you to sweep through a list-like key, such as when multiple values are stored under the same key.
-
-        Example:
-        cfg = ConfigObject({"key1": [1, 2, 3]})
-        for value in cfg.sweep("key1"):
-            print(value)
-
-        :param relative_key: The relative key to access and sweep through.
-        :yield: Each value associated with the relative key.
-
         ATTENTION: this may behave strangely with zip and multiple keys, cause zip is lazy and doesn't fully iterate through all the list, but as soon as one is exhausted, it stops. 
         This means that one key is going to have its values restored, while the others are going to be left with the last value.
         To avoid this, use itertools.zip_longest instead of zip.
         """
         sweep_dict = self["__exp__"]["__sweep__"]["parameters"]
+
+        if isinstance(sweep_info, str):
+            sweep_info = [sweep_info]
+
+        # Iterate all keys and yield all values at the same time, one from each key
+        yield from self._sweep_loop(sweep_dict, sweep_info)
+    
+    def _sweep_loop(self, sweep_dict, sweep_info, value_to_yield=[]):
+        if len(sweep_info) == 0:
+            yield value_to_yield
+        else:
+            relative_key = sweep_info[0]
+            for value in self._sweep_single_or_multiple(sweep_dict, relative_key):
+                value_to_yield.append(value)
+                yield from self._sweep_loop(sweep_dict, sweep_info[1:], value_to_yield)
+                value_to_yield.pop()
+
+    def _sweep_single_or_multiple(self, sweep_dict, relative_key):
+        if isinstance(relative_key, (list, tuple)):
+            yield from self._sweep_multiple_keys(sweep_dict, *relative_key)
+        else:
+            yield from self._sweep_single_key(sweep_dict, relative_key)
+        
+    def _sweep_single_key(self, sweep_dict, relative_key):
         if relative_key in sweep_dict:
             sweep_values = sweep_dict[relative_key]["values"] #TODO: more complex method if sweep is based on distribution
         else:
@@ -983,6 +995,15 @@ class ConfigObject(dict):
             self[relative_key] = value  # Set the current value to the relative key
             yield value  # Yield the current value
         self[relative_key] = original_value  # Restore the original values in the configuration
+        
+    def _sweep_multiple_keys(self, sweep_dict, *relative_keys):
+        """
+        :param relative_keys: The relative keys to access and sweep through.
+        :yield: Each value associated with the relative keys.
+        """
+        
+        for values in zip_longest(*[self._sweep_single_key(sweep_dict, relative_key) for relative_key in relative_keys]):
+            yield values
 
     # def sweep_multiple(self, *relative_keys):
     #     """
