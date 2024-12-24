@@ -151,8 +151,12 @@ def if_not_folder_create(folder_path):
     :param folder_path: The path to the folder.
     """
     if not os.path.isdir(folder_path):
-        print(folder_path, "not found --> creating")
-        os.makedirs(folder_path)
+        try:
+            os.makedirs(folder_path)
+            print(folder_path, "not found --> created")
+        # catch folder already created by another process
+        except FileExistsError:
+            pass
 
 
 # This function constructs the path to the experiment list file.
